@@ -51,7 +51,7 @@ class _MarkLeaveScreenState extends State<MarkLeaveScreen> {
                         size: 28, color: Colors.black),
                   ),
 
-                  Image.asset('assets/TrooGood_Logo.png', height: 42),
+                  Image.asset('assets/images/TrooGood_Logo.png', height: 42),
 
                   const Icon(Icons.notifications_none,
                       size: 28, color: Colors.black),

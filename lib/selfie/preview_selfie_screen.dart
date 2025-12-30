@@ -7,6 +7,7 @@ import 'package:tg_app/store_dashboard/store_dashboard_screen.dart';
 class PreviewSelfieScreen extends StatelessWidget {
   final String imagePath;
   final LatLng location;
+  final int storeId;          // ✅ ADDED
   final String outletName;
   final String beatName;
 
@@ -14,6 +15,7 @@ class PreviewSelfieScreen extends StatelessWidget {
     super.key,
     required this.imagePath,
     required this.location,
+    required this.storeId,     // ✅ ADDED
     required this.outletName,
     required this.beatName,
   });
@@ -27,7 +29,10 @@ class PreviewSelfieScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text("Preview", style: TextStyle(color: Colors.black)),
+        title: const Text(
+          "Preview",
+          style: TextStyle(color: Colors.black),
+        ),
         leading: GestureDetector(
           onTap: () => Navigator.pop(context),
           child: const Icon(Icons.arrow_back, color: Colors.black),
@@ -39,7 +44,10 @@ class PreviewSelfieScreen extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.blue.shade700, width: 4),
+                border: Border.all(
+                  color: Colors.blue.shade700,
+                  width: 4,
+                ),
               ),
               child: Stack(
                 children: [
@@ -62,15 +70,17 @@ class PreviewSelfieScreen extends StatelessWidget {
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
           ),
+
+          // ACTION BUTTONS
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Retake
+              // 🔴 RETAKE
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: const CircleAvatar(
@@ -79,13 +89,15 @@ class PreviewSelfieScreen extends StatelessWidget {
                   child: Icon(Icons.close, color: Colors.white),
                 ),
               ),
-              // Save & Proceed
+
+              // 🟢 SAVE & PROCEED
               GestureDetector(
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => StoreDashboardScreen(
+                        storeId: storeId,       // ✅ FIXED
                         outletName: outletName,
                         beatName: beatName,
                       ),
@@ -97,9 +109,10 @@ class PreviewSelfieScreen extends StatelessWidget {
                   backgroundColor: Colors.green,
                   child: Icon(Icons.check, color: Colors.white),
                 ),
-              )
+              ),
             ],
           ),
+
           const SizedBox(height: 20),
         ],
       ),

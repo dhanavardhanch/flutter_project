@@ -1,8 +1,15 @@
 import 'dart:async';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
+
 import '../home_page/home_page.dart';
-import '../auth/auth_service.dart';
 import '../auth/login_screen.dart';
+import '../services/local_storage.dart';
+import '../services/network_service.dart';
+import '../services/master_sync_service.dart';
+
+
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
@@ -22,11 +29,20 @@ class _LoadingScreenState extends State<LoadingScreen> {
     "SNACK SMART —\nTASTE GOOD, FEEL GOOD.",
   ];
 
+  late Timer _timer;
+  late DateTime _startTime;
+
   @override
   void initState() {
     super.initState();
 
-    Timer.periodic(const Duration(seconds: 3), (timer) {
+    _startTime = DateTime.now();
+    _startAnimation();
+    _initializeApp();
+  }
+
+  void _startAnimation() {
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (!mounted) return;
 
       setState(() {
@@ -36,26 +52,66 @@ class _LoadingScreenState extends State<LoadingScreen> {
 
       if (taglineIndex >= taglines.length - 1) {
         timer.cancel();
-
-        Future.delayed(const Duration(seconds: 1), () async {
-          final token = await AuthService.getToken();
-
-          if (!mounted) return;
-
-          if (token != null) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const HomePage()),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            );
-          }
-        });
       }
     });
+  }
+
+  Future<void> _initializeApp() async {
+    // Small delay so UI doesn’t feel rushed
+    await Future.delayed(const Duration(seconds: 3));
+
+    // 1️⃣ Check login
+    final isLoggedIn = await LocalStorage.isLoggedIn();
+
+    if (!isLoggedIn) {
+      _logPerformance();
+      _goTo(const LoginScreen());
+      return;
+    }
+
+    // 2️⃣ Check internet
+    final hasInternet = await NetworkService.hasInternet();
+
+    if (hasInternet) {
+      try {
+        // 3️⃣ Master data sync (ONLINE)
+        await MasterSyncService.syncAll(
+          sellerId: 5, // TODO: replace with logged-in seller ID
+        );
+      } catch (e) {
+        log("Master sync failed: $e");
+      }
+    } else {
+      log("Offline mode: using cached master data");
+    }
+
+    // 4️⃣ Performance log
+    _logPerformance();
+
+    // 5️⃣ Navigate to Home
+    _goTo(const HomePage());
+  }
+
+  void _logPerformance() {
+    final endTime = DateTime.now();
+    final duration =
+        endTime.difference(_startTime).inMilliseconds;
+
+    log("🚀 App load time: ${duration}ms");
+  }
+
+  void _goTo(Widget page) {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
   }
 
   @override
@@ -67,9 +123,8 @@ class _LoadingScreenState extends State<LoadingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
             Image.asset(
-              'assets/TrooGood_Logo.png',
+              'assets/images/TrooGood_Logo.png',
               width: 180,
             ),
 

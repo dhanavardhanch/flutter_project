@@ -130,7 +130,7 @@ class _OfficialWorkScreenState extends State<OfficialWorkScreen> {
                   ),
 
                   Image.asset(
-                    'assets/TrooGood_Logo.png',
+                    'assets/images/TrooGood_Logo.png',
                     height: 45,
                   ),
 

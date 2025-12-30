@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+
 import '../notifications/notification_screen.dart';
-import '../location/start_day_screen.dart';
 import 'select_beat_screen.dart';
 import 'add_outlet_screen.dart';
-import '../activity_logger.dart';
+import '../selfie/selfie_camera_screen.dart';
+
+import '../api/store_api.dart';
+import '../models/store_model.dart';
+
+import '../services/network_service.dart';
+import '../services/local_storage.dart';
+
 
 class SelectOutletScreen extends StatefulWidget {
   final String beatName;
@@ -20,88 +27,58 @@ class SelectOutletScreen extends StatefulWidget {
 }
 
 class _SelectOutletScreenState extends State<SelectOutletScreen> {
-  String? selectedOutlet;
+  StoreModel? selectedStore; // ✅ STORE MODEL (NOT JUST NAME)
   String searchQuery = "";
   final TextEditingController searchController = TextEditingController();
 
-  final Map<String, List<Map<String, String>>> outletData = {
-    "Ameerpet": [
-      {"name": "Ratnadeep-Ameerpet_A11", "city": "AMEERPET"},
-      {"name": "Ratnadeep-Somajiguda_A05", "city": "AMEERPET"},
-      {"name": "Ratnadeep-Yousufguda_A08", "city": "AMEERPET"},
-    ],
-    "Hitech City": [
-      {"name": "D-Mart - MyHome_5010", "city": "Hyderabad"},
-      {"name": "Ratnadeep-Film Nagar_A43", "city": "Hitech City"},
-    ],
-    "Kompally": [
-      {"name": "Ratnadeep-Kompally_A21", "city": "Kompally"},
-    ],
-    "Nallagandla": [
-      {"name": "Ratnadeep-Nallagandla_A12", "city": "Nallagandla"},
-    ],
-    "Nizampet": [
-      {"name": "Ratnadeep-Nizampet_A19", "city": "Nizampet"},
-    ],
-    "Tolichowki": [
-      {"name": "Ratnadeep-Tolichowki_A27", "city": "Tolichowki"},
-    ],
-  };
+  late Future<List<StoreModel>> storeFuture;
+  List<StoreModel> allStores = [];
 
   @override
   void initState() {
     super.initState();
 
-    final savedOutlets = ActivityLogger.getOutlets(widget.beatName);
-    if (savedOutlets.isNotEmpty) {
-      outletData.putIfAbsent(widget.beatName, () => []);
-      for (final outlet in savedOutlets) {
-        final exists = outletData[widget.beatName]!
-            .any((o) => o["name"] == outlet["name"]);
-        if (!exists) {
-          outletData[widget.beatName]!.add(outlet);
-        }
-      }
-    }
+    storeFuture = _loadStores();
+  }
 
-    selectedOutlet = null; // ✅ nothing auto-selected
+  // ===============================
+  // 🌐 ONLINE / OFFLINE STORE LOADER
+  // ===============================
+  Future<List<StoreModel>> _loadStores() async {
+    final hasInternet = await NetworkService.hasInternet();
+
+    if (hasInternet) {
+      return await StoreApi.getStoresBySeller(
+        sellerId: 5, // TODO: replace with logged-in seller
+        beatArea: widget.beatName,
+      );
+    } else {
+      final localStores = await LocalStorage.getStores();
+      return localStores
+          .map((e) => StoreModel.fromJson(e))
+          .where((s) => s.area == widget.beatName)
+          .toList();
+    }
   }
 
   void _addNewOutlet() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AddOutletScreen(beatName: widget.beatName),
       ),
     );
-
-    if (result != null && result is Map<String, String>) {
-      setState(() {
-        outletData.putIfAbsent(widget.beatName, () => []);
-        outletData[widget.beatName]!.add(result);
-        selectedOutlet = null;
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final originalOutlets = outletData[widget.beatName] ?? [];
-    final filteredOutlets = originalOutlets
-        .where((o) =>
-        (o["name"] ?? "")
-            .toLowerCase()
-            .contains(searchQuery.toLowerCase()))
-        .toList();
-
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-                builder: (_) => const SelectBeatScreen()),
+            MaterialPageRoute(builder: (_) => const SelectBeatScreen()),
           );
         }
       },
@@ -113,71 +90,90 @@ class _SelectOutletScreenState extends State<SelectOutletScreen> {
             children: [
               _header(context),
               _title(),
+
+              // 🕒 LAST SYNC
+              FutureBuilder<String?>(
+                future: LocalStorage.getLastSyncTime(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox();
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      "Last synced: ${snapshot.data}",
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  );
+                },
+              ),
+
               _search(),
               const SizedBox(height: 10),
 
+              // ===============================
+              // 📦 OUTLET LIST
+              // ===============================
               Expanded(
-                child: filteredOutlets.isEmpty
-                    ? const Center(
-                  child: Text(
-                    "No outlets found",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-                    : ListView.builder(
-                  itemCount: filteredOutlets.length,
-                  itemBuilder: (context, index) {
-                    final outlet = filteredOutlets[index];
+                child: FutureBuilder<List<StoreModel>>(
+                  future: storeFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                    return ListTile(
-                      title: Text(outlet["name"] ?? "Unknown Outlet"),
-                      subtitle: Text(outlet["city"] ?? "-"),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // ✏️ Edit outlet
-                          IconButton(
-                            icon:
-                            const Icon(Icons.edit, size: 20),
-                            onPressed: () async {
-                              final updated =
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      AddOutletScreen(
-                                        beatName: widget.beatName,
-                                        initialOutlet: outlet,
-                                      ),
-                                ),
-                              );
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text(
+                          "Failed to load outlets",
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      );
+                    }
 
-                              if (updated != null &&
-                                  updated
-                                  is Map<String, String>) {
-                                setState(() {
-                                  outlet["name"] =
-                                  updated["name"]!;
-                                  outlet["city"] =
-                                  updated["city"]!;
-                                  selectedOutlet = null;
-                                });
-                              }
-                            },
+                    allStores = snapshot.data ?? [];
+
+                    final filteredStores = allStores.where((store) {
+                      return store.name
+                          .toLowerCase()
+                          .contains(searchQuery.toLowerCase());
+                    }).toList();
+
+                    if (filteredStores.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          "No outlets found",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: filteredStores.length,
+                      itemBuilder: (context, index) {
+                        final store = filteredStores[index];
+
+                        return ListTile(
+                          title: Text(
+                            store.name.toUpperCase(),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(int.parse(store.color)),
+                            ),
                           ),
-                          selectedOutlet == outlet["name"]
-                              ? const Icon(
-                            Icons.check_box,
-                            color: Colors.blue,
-                          )
-                              : const Icon(Icons
-                              .check_box_outline_blank),
-                        ],
-                      ),
-                      onTap: () {
-                        setState(() {
-                          selectedOutlet = outlet["name"];
-                        });
+                          subtitle: Text(
+                            '₹ ${store.lifeValue} | Repeats: ${store.repeatCount}',
+                          ),
+                          trailing: selectedStore?.id == store.id
+                              ? const Icon(Icons.check_box,
+                              color: Colors.blue)
+                              : const Icon(
+                              Icons.check_box_outline_blank),
+                          onTap: () {
+                            setState(() {
+                              selectedStore = store;
+                            });
+                          },
+                        );
                       },
                     );
                   },
@@ -192,10 +188,11 @@ class _SelectOutletScreenState extends State<SelectOutletScreen> {
     );
   }
 
-  // 🔝 HEADER WITH TOP + BUTTON
+  // ===============================
+  // 🔝 HEADER
+  // ===============================
   Widget _header(BuildContext context) => Container(
-    padding:
-    const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -203,32 +200,25 @@ class _SelectOutletScreenState extends State<SelectOutletScreen> {
           onTap: () {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const SelectBeatScreen()),
+              MaterialPageRoute(builder: (_) => const SelectBeatScreen()),
             );
           },
           child: const Icon(Icons.arrow_back, size: 28),
         ),
-
-        Image.asset('assets/TrooGood_Logo.png', height: 45),
-
+        Image.asset('assets/images/TrooGood_Logo.png', height: 45),
         Row(
           children: [
-            // ➕ ADD OUTLET (TOP)
             IconButton(
-              icon: const Icon(Icons.add_circle_outline,
-                  size: 28),
+              icon: const Icon(Icons.add_circle_outline, size: 28),
               onPressed: _addNewOutlet,
             ),
             IconButton(
-              icon: const Icon(Icons.notifications_none,
-                  size: 28),
+              icon: const Icon(Icons.notifications_none, size: 28),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                    const NotificationScreen(),
+                    builder: (_) => const NotificationScreen(),
                   ),
                 );
               },
@@ -240,15 +230,13 @@ class _SelectOutletScreenState extends State<SelectOutletScreen> {
   );
 
   Widget _title() => Padding(
-    padding:
-    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           "Select Outlet",
-          style:
-          TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
         ),
         Text(
           widget.beatName,
@@ -261,8 +249,7 @@ class _SelectOutletScreenState extends State<SelectOutletScreen> {
   Widget _search() => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(12),
@@ -272,23 +259,26 @@ class _SelectOutletScreenState extends State<SelectOutletScreen> {
         decoration: const InputDecoration(
           border: InputBorder.none,
           icon: Icon(Icons.search),
-          hintText: "Search",
+          hintText: "Search outlet",
         ),
-        onChanged: (v) =>
-            setState(() => searchQuery = v),
+        onChanged: (v) => setState(() => searchQuery = v),
       ),
     ),
   );
 
+  // ===============================
+  // ✅ PROCEED → CAMERA (STORE ID PASSED)
+  // ===============================
   Widget _proceed(BuildContext context) => GestureDetector(
-    onTap: selectedOutlet == null
+    onTap: selectedStore == null
         ? null
         : () {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => StartDayScreen(
-            outletName: selectedOutlet!,
+          builder: (_) => SelfieCameraScreen(
+            storeId: selectedStore!.id, // ✅ FIXED
+            outletName: selectedStore!.name,
             beatName: widget.beatName,
           ),
         ),
@@ -297,15 +287,13 @@ class _SelectOutletScreenState extends State<SelectOutletScreen> {
     child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      color:
-      selectedOutlet == null ? Colors.grey : Colors.blue,
+      color: selectedStore == null ? Colors.grey : Colors.blue,
       child: Text(
-        selectedOutlet == null
+        selectedStore == null
             ? "SELECT OUTLET TO PROCEED"
             : "PROCEED →",
         textAlign: TextAlign.center,
-        style: const TextStyle(
-            color: Colors.white, fontSize: 18),
+        style: const TextStyle(color: Colors.white, fontSize: 18),
       ),
     ),
   );

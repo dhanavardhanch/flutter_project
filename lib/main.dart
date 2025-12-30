@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'auth/login_screen.dart';          // ✅ ADD THIS
-import 'opening_app/splash_screen.dart';  // keep
-import 'activity_logger.dart';            // keep
+
+import 'auth/login_screen.dart';
+import 'activity_logger.dart';
+
+// ✅ REQUIRED FOR PAGE LOAD TIMING (GLOBAL)
+import 'utils/page_load_observer.dart';
 
 void main() async {
   // Required before any async call
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ⭐ Load logs BEFORE app starts
+  // ⭐ Load activity logs BEFORE app starts
   await ActivityLogger.initialize();
 
   runApp(const TGApp());
@@ -21,14 +24,21 @@ class TGApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      // Theme stays same
+      // ✅ GLOBAL PAGE LOAD OBSERVER (ONE PLACE ONLY)
+      navigatorObservers: [
+        PageLoadObserver(),
+      ],
+
+      // ✅ GLOBAL THEME
       theme: ThemeData(
         primaryColor: const Color(0xFF00AEEF),
         scaffoldBackgroundColor: Colors.white,
-        fontFamily: "Roboto",
+
+        // ✅ GLOBAL FONT
+        fontFamily: 'Montserrat',
       ),
 
-      // ✅ LOGIN FIRST
+      // ✅ START SCREEN
       home: const LoginScreen(),
     );
   }

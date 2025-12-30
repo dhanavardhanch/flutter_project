@@ -1,5 +1,3 @@
-// lib/store_dashboard/store_dashboard_screen.dart
-
 import 'package:flutter/material.dart';
 import '../store_dashboard/store_dashboard_menu.dart';
 import '../store_dashboard/store_dashboard_stock.dart';
@@ -9,12 +7,15 @@ import '../notifications/notification_screen.dart';
 import 'package:tg_app/activity_logger.dart';
 import '../selection/select_outlet_screen.dart';
 
+
 class StoreDashboardScreen extends StatefulWidget {
+  final int storeId;
   final String outletName;
   final String beatName;
 
   const StoreDashboardScreen({
     super.key,
+    required this.storeId,
     required this.outletName,
     required this.beatName,
   });
@@ -27,21 +28,22 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   @override
   void initState() {
     super.initState();
-
-    /// ⭐ Always log store visit when user enters dashboard
     ActivityLogger.addStoreVisit(widget.outletName);
+
   }
 
-  // ---------- REUSABLE BUTTON ----------
   Widget dashboardButton({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    double height = 110,
+    bool fullWidth = false,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 110,
+        width: fullWidth ? double.infinity : null, // ✅ FORCE FULL WIDTH
+        height: height,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -57,16 +59,16 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 38, color: Colors.blue.shade600),
+            Icon(icon, size: 36, color: Colors.blue.shade600),
             const SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -80,213 +82,177 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
         outletName: widget.outletName,
         beatName: widget.beatName,
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.blue.shade50,
 
       body: SafeArea(
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFFF2F8FF),
-                Color(0xFFE9F3FF),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-
-          child: Column(
-            children: [
-              // ---------------- HEADER ----------------
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Builder(
-                      builder: (context) {
-                        return GestureDetector(
-                          onTap: () => Scaffold.of(context).openDrawer(),
-                          child: const Icon(Icons.menu, size: 30),
-                        );
-                      },
+        child: Column(
+          children: [
+            // 🔵 TOP BAR
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+              color: Colors.blue.shade100,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Builder(
+                    builder: (context) => GestureDetector(
+                      onTap: () => Scaffold.of(context).openDrawer(),
+                      child: const Icon(Icons.menu, size: 28),
                     ),
-
-                    Column(
-                      children: [
-                        Text(
-                          widget.outletName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          widget.beatName,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationScreen(),
-                          ),
-                        );
-                      },
-                      child: const Icon(
-                        Icons.notifications_none,
-                        size: 30,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ---------------- STORE OUT ----------------
-              GestureDetector(
-                onTap: () {
-                  ActivityLogger.storeOut();
-
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (_) => SelectOutletScreen(
-                        beatName: widget.beatName,
-                        fromChangeOutlet: false,
-                      ),
-                    ),
-                        (route) => false,
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  color: Colors.red.shade600,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                  ),
+                  Column(
+                    children: [
                       Text(
-                        "Store Out",
-                        style: TextStyle(color: Colors.white, fontSize: 18),
+                        widget.outletName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      SizedBox(width: 10),
-                      Icon(Icons.power_settings_new, color: Colors.white),
+                      Text(
+                        widget.beatName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none, size: 28),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
+            ),
 
-              const SizedBox(height: 30),
-
-              // ---------------- LOGO ----------------
-              Expanded(
-                child: Center(
-                  child: Image.asset(
-                    "assets/TrooGood_Logo.png",
-                    width: 170,
+            // 🔴 STORE OUT
+            GestureDetector(
+              onTap: () {
+                ActivityLogger.storeOut();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SelectOutletScreen(
+                      beatName: widget.beatName,
+                      fromChangeOutlet: false,
+                    ),
+                  ),
+                      (_) => false,
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                color: Colors.red.shade600,
+                child: const Center(
+                  child: Text(
+                    "Store Out",
+                    style: TextStyle(color: Colors.white, fontSize: 18),
                   ),
                 ),
               ),
+            ),
 
-              // ---------------- BUTTONS ----------------
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // STOCK + PURCHASE ORDER
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: dashboardButton(
-                              icon: Icons.inventory_2,
-                              label: "STOCK",
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => StoreDashboardStock(
-                                      outletName: widget.outletName,   // ⭐ FIXED
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: dashboardButton(
-                              icon: Icons.shopping_cart,
-                              label: "PURCHASE\nORDER",
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const StoreDashboardPurchaseOrderScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // TASK BUTTON
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: dashboardButton(
-                              icon: Icons.task_alt,
-                              label: "TASK",
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const StoreDashboardTaskScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 25),
-                  ],
+            // 🟡 CENTER AREA (LOGO)
+            Expanded(
+              child: Center(
+                child: Image.asset(
+                  "assets/images/TrooGood_Logo.png",
+                  width: 160,
                 ),
               ),
+            ),
 
-              // ---------------- REFRESH ----------------
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                color: Colors.grey.shade300,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.refresh, size: 22),
-                    SizedBox(width: 10),
-                    Text("REFRESH", style: TextStyle(fontSize: 16)),
-                  ],
-                ),
+            // 🔘 BUTTON SECTION (BOTTOM)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: dashboardButton(
+                          icon: Icons.inventory_2,
+                          label: "STOCK",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StoreDashboardStock(
+                                  outletName: widget.outletName,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: dashboardButton(
+                          icon: Icons.shopping_cart,
+                          label: "PURCHASE ORDER",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                const StoreDashboardPurchaseOrderScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ✅ FULL-WIDTH TASK BUTTON
+                  dashboardButton(
+                    icon: Icons.task_alt,
+                    label: "TASK",
+                    height: 120,
+                    fullWidth: true,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoreDashboardTaskScreen(
+                            storeId: widget.storeId,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 🔄 REFRESH
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              color: Colors.grey.shade300,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.refresh, size: 20),
+                  SizedBox(width: 8),
+                  Text("REFRESH"),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

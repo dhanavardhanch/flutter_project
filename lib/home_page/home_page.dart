@@ -129,7 +129,7 @@ class _HomePageState extends State<HomePage> {
 
                     // Logo
                     Image.asset(
-                      'assets/TrooGood_Logo.png',
+                      'assets/images/TrooGood_Logo.png',
                       height: 40,
                     ),
 
@@ -224,7 +224,7 @@ class _HomePageState extends State<HomePage> {
                     SizedBox(
                       height: 210,
                       child: Lottie.asset(
-                        'assets/lottie/homepageanime.json',
+                        'assets/Animations/homepageanime.json',
                         repeat: true,
                       ),
                     ),

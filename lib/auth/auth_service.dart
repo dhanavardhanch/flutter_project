@@ -1,43 +1,58 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../services/local_storage.dart';
 
 class AuthService {
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const String _loginUrl =
+      'https://troogood.in/api/V1/salesexecutives/login';
 
-  // 🔐 JWT storage key
-  static const String _tokenKey = 'jwt_token';
+  // ---------------- LOGIN ----------------
+  static Future<bool> login({
+    required String mobile,
+    required String password,
+  }) async {
+    final response = await http.post(
+      Uri.parse(_loginUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'mobile': mobile,
+        'password': password,
+      }),
+    );
 
-  // ------------------------------------------------------------------
-  // SAVE JWT TOKEN
-  // ------------------------------------------------------------------
-  static Future<void> saveToken(String token) async {
-    await _storage.write(key: _tokenKey, value: token);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+
+      if (json['success'] == 'true') {
+        final data = json['data'];
+
+        await LocalStorage.saveUser(
+          id: data['id'],
+          name: data['name'],
+          mobile: data['mobile'],
+        );
+
+        // JWT not provided yet by backend
+        // await LocalStorage.saveToken(json['token']);
+
+        return true;
+      }
+    }
+    return false;
   }
 
-  // ------------------------------------------------------------------
-  // GET JWT TOKEN
-  // ------------------------------------------------------------------
+  // ---------------- TOKEN ----------------
   static Future<String?> getToken() async {
-    return await _storage.read(key: _tokenKey);
+    return LocalStorage.getToken();
   }
 
-  // ------------------------------------------------------------------
-  // CLEAR JWT TOKEN (LOGOUT)
-  // ------------------------------------------------------------------
-  static Future<void> clearToken() async {
-    await _storage.delete(key: _tokenKey);
+  // ---------------- SESSION ----------------
+  static Future<bool> isLoggedIn() async {
+    return LocalStorage.isLoggedIn();
   }
 
-  // ------------------------------------------------------------------
-  // LOGIN (TEMP DEV STUB)
-  // ------------------------------------------------------------------
-  /// This is a TEMPORARY login implementation.
-  /// Backend (Laravel) will later validate credentials and return real JWT.
-  /// For now, we simulate login and store a dummy JWT.
-  static Future<bool> login() async {
-    const String dummyJwtToken = "DEV_JWT_TOKEN";
-
-    await saveToken(dummyJwtToken);
-
-    return true;
+  // ---------------- LOGOUT ----------------
+  static Future<void> logout() async {
+    await LocalStorage.clear();
   }
 }

@@ -3,25 +3,29 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:lottie/lottie.dart';
 import 'package:tg_app/selfie/selfie_camera_screen.dart';
-import 'package:tg_app/activity_logger.dart'; // 👈 ADDED
+import 'package:tg_app/activity_logger.dart';
 
 class CurrentLocationScreen extends StatefulWidget {
+  final int storeId;          // ✅ ADDED
   final String outletName;
   final String beatName;
   final bool showLoader;
 
   const CurrentLocationScreen({
     super.key,
+    required this.storeId,    // ✅ REQUIRED
     required this.outletName,
     required this.beatName,
     this.showLoader = true,
   });
 
   @override
-  State<CurrentLocationScreen> createState() => _CurrentLocationScreenState();
+  State<CurrentLocationScreen> createState() =>
+      _CurrentLocationScreenState();
 }
 
-class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
+class _CurrentLocationScreenState
+    extends State<CurrentLocationScreen> {
   LatLng? userLatLng;
   double accuracy = 0;
   bool mapReady = false;
@@ -39,29 +43,33 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
       return;
     }
 
-    LocationPermission p = await Geolocator.checkPermission();
-    if (p == LocationPermission.denied) {
-      p = await Geolocator.requestPermission();
+    LocationPermission permission =
+    await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
     }
 
-    Position pos = await Geolocator.getCurrentPosition(
+    final position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
 
-    // ---------------- LOG LOCATION DATA ----------------
+    // 🧾 LOG LOCATION
     ActivityLogger.add(
       "Location Fetched",
-      "Lat: ${pos.latitude}, Lng: ${pos.longitude}, Accuracy: ${pos.accuracy}m",
+      "Lat: ${position.latitude}, "
+          "Lng: ${position.longitude}, "
+          "Accuracy: ${position.accuracy}m",
       "location",
     );
 
     setState(() {
-      userLatLng = LatLng(pos.latitude, pos.longitude);
-      accuracy = pos.accuracy;
+      userLatLng = LatLng(position.latitude, position.longitude);
+      accuracy = position.accuracy;
     });
 
     Future.delayed(const Duration(milliseconds: 400), () {
-      setState(() => mapReady = true);
+      if (mounted) setState(() => mapReady = true);
     });
   }
 
@@ -73,7 +81,10 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text("Current Location", style: TextStyle(color: Colors.black)),
+        title: const Text(
+          "Current Location",
+          style: TextStyle(color: Colors.black),
+        ),
         leading: GestureDetector(
           onTap: () {
             ActivityLogger.add(
@@ -81,7 +92,6 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
               "User returned from Current Location screen",
               "navigation",
             );
-
             Navigator.pop(context);
           },
           child: const Icon(Icons.arrow_back, color: Colors.black),
@@ -95,7 +105,9 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
           children: [
             SizedBox(
               height: 180,
-              child: Lottie.asset("assets/lottie/globe.json"),
+              child: Lottie.asset(
+                "assets/lottie/globe.json",
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -119,7 +131,7 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
             zoomControlsEnabled: false,
           ),
 
-          // ---------------- CONFIRM LOCATION BUTTON ----------------
+          // ✅ CONFIRM LOCATION
           Positioned(
             bottom: 0,
             left: 0,
@@ -128,7 +140,8 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
               onTap: () {
                 ActivityLogger.add(
                   "Location Confirmed",
-                  "Accuracy: ${accuracy.toInt()}m | Outlet: ${widget.outletName}",
+                  "Accuracy: ${accuracy.toInt()}m | "
+                      "Outlet: ${widget.outletName}",
                   "location",
                 );
 
@@ -136,7 +149,7 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => SelfieCameraScreen(
-                      location: userLatLng!,
+                      storeId: widget.storeId, // ✅ FIXED
                       outletName: widget.outletName,
                       beatName: widget.beatName,
                     ),
@@ -147,7 +160,8 @@ class _CurrentLocationScreenState extends State<CurrentLocationScreen> {
                 padding: const EdgeInsets.all(20),
                 color: Colors.blue.shade700,
                 child: Text(
-                  "CONFIRM LOCATION (${accuracy.toInt()} m) →",
+                  "CONFIRM LOCATION "
+                      "(${accuracy.toInt()} m) →",
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,

@@ -3,11 +3,13 @@ import 'current_location_screen.dart';
 import 'package:tg_app/activity_logger.dart';
 
 class StartDayScreen extends StatelessWidget {
+  final int storeId;        // ✅ ADDED
   final String outletName;
   final String beatName;
 
   const StartDayScreen({
     super.key,
+    required this.storeId,  // ✅ REQUIRED
     required this.outletName,
     required this.beatName,
   });
@@ -34,13 +36,23 @@ class StartDayScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset("assets/TrooGood_Logo.png", width: 220),
+            Image.asset(
+              "assets/images/TrooGood_Logo.png",
+              width: 220,
+            ),
             const SizedBox(height: 40),
-            const Icon(Icons.location_on, color: Colors.red, size: 90),
+            const Icon(
+              Icons.location_on,
+              color: Colors.red,
+              size: 90,
+            ),
             const SizedBox(height: 20),
             const Text(
               "Start app when at a store",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -48,18 +60,22 @@ class StartDayScreen extends StatelessWidget {
 
       bottomNavigationBar: GestureDetector(
         onTap: () {
-
-          // ⭐ REQUIRED FOR MIS → Count store visit
+          // ⭐ MIS: store visit
           ActivityLogger.addStoreVisit(outletName);
 
-          // Log that day has started
-          ActivityLogger.add("Day Start", "User started the day", "start");
+          // 🟢 Day start log
+          ActivityLogger.add(
+            "Day Start",
+            "User started the day at $outletName",
+            "start",
+          );
 
-          // Redirect to Current Location screen
+          // ✅ PASS storeId CORRECTLY
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => CurrentLocationScreen(
+                storeId: storeId,        // ✅ FIXED
                 outletName: outletName,
                 beatName: beatName,
               ),

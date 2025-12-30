@@ -14,8 +14,9 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    // Navigate after 2 seconds
+
     Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoadingScreen()),
@@ -32,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/TrooGood_Logo.png',
+              'assets/images/TrooGood_Logo.png',
               width: 200,
             ),
             const SizedBox(height: 20),
@@ -41,17 +42,12 @@ class _SplashScreenState extends State<SplashScreen> {
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
               ),
             ),
             const SizedBox(height: 10),
             const Text(
               "Affordable Nutrition, Anytime, Anywhere.",
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
             ),
           ],
         ),

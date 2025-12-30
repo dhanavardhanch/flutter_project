@@ -1,80 +1,58 @@
 import 'package:flutter/material.dart';
+
 import '../notifications/notification_screen.dart';
 import '../home_page/home_page.dart';
 import 'select_outlet_screen.dart';
 import 'add_beat_screen.dart';
-import '../activity_logger.dart';
+
+import '../api/beat_api.dart';
+import '../models/beat_model.dart';
+import '../services/local_storage.dart';
 
 class SelectBeatScreen extends StatefulWidget {
   final bool goToOutletAfterBeat;
 
-  const SelectBeatScreen({super.key, this.goToOutletAfterBeat = false});
+  const SelectBeatScreen({
+    super.key,
+    this.goToOutletAfterBeat = false,
+  });
 
   @override
   State<SelectBeatScreen> createState() => _SelectBeatScreenState();
 }
 
 class _SelectBeatScreenState extends State<SelectBeatScreen> {
-  final List<Map<String, dynamic>> beats = [
-    {"name": "Ameerpet", "outlets": 0},
-    {"name": "Hitech City", "outlets": 0},
-    {"name": "Kompally", "outlets": 0},
-    {"name": "Nallagandla", "outlets": 0},
-    {"name": "Nizampet", "outlets": 0},
-    {"name": "Tolichowki", "outlets": 0},
-  ];
+  bool loading = true;
+  List<BeatModel> beats = [];
 
   @override
   void initState() {
     super.initState();
-    _mergeSavedBeats();
-    _updateOutletCounts();
+    fetchBeats();
   }
 
-  void _mergeSavedBeats() {
-    final savedBeats = ActivityLogger.getBeats();
-    for (final beatName in savedBeats) {
-      final exists = beats.any((b) => b["name"] == beatName);
-      if (!exists) {
-        beats.add({"name": beatName, "outlets": 0});
-      }
+  // ===================================================
+  // 🔥 ONLINE → OFFLINE SAFE BEAT LOAD
+  // ===================================================
+  Future<void> fetchBeats() async {
+    try {
+      final apiBeats = await BeatApi.getBeatsBySeller(
+        sellerId: 5,
+      );
+
+      beats = apiBeats;
+
+      // ✅ SAVE FOR OFFLINE
+      await LocalStorage.saveBeats(
+        beats.map((b) => b.toJson()).toList(),
+      );
+    } catch (_) {
+      // 🔁 OFFLINE FALLBACK
+      final offline = await LocalStorage.getBeats();
+      beats = offline.map((e) => BeatModel.fromJson(e)).toList();
     }
-  }
 
-  void _updateOutletCounts() {
-    for (final beat in beats) {
-      final name = beat["name"];
-      final staticCount = _staticOutletCount(name);
-      final savedCount = ActivityLogger.getOutlets(name).length;
-      beat["outlets"] = staticCount + savedCount;
-    }
-    setState(() {});
-  }
-
-  int _staticOutletCount(String beatName) {
-    const staticOutletData = {
-      "Ameerpet": 3,
-      "Hitech City": 2,
-      "Kompally": 1,
-      "Nallagandla": 1,
-      "Nizampet": 1,
-      "Tolichowki": 1,
-    };
-    return staticOutletData[beatName] ?? 0;
-  }
-
-  void _addNewBeat() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AddBeatScreen()),
-    );
-
-    if (result != null && result is String) {
-      setState(() {
-        beats.add({"name": result, "outlets": 0});
-      });
-      _updateOutletCounts();
-    }
+    setState(() => loading = false);
   }
 
   @override
@@ -102,75 +80,56 @@ class _SelectBeatScreenState extends State<SelectBeatScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     "Select Beat",
-                    style:
-                    TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
 
               Expanded(
-                child: ListView.builder(
+                child: loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : beats.isEmpty
+                    ? const Center(child: Text("No beats found"))
+                    : ListView.builder(
                   itemCount: beats.length,
                   itemBuilder: (context, index) {
                     final beat = beats[index];
 
                     return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 8),
+                      contentPadding:
+                      const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       title: Text(
-                        beat["name"],
+                        beat.area,
                         style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      subtitle: Text("${beat["outlets"]} outlets"),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // ✏️ Edit Beat (FIXED)
-                          IconButton(
-                            icon: const Icon(Icons.edit, size: 20),
-                            onPressed: () async {
-                              final oldName = beat["name"];
-
-                              final updatedName = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => AddBeatScreen(
-                                    initialBeatName: oldName,
-                                  ),
-                                ),
-                              );
-
-                              if (updatedName != null &&
-                                  updatedName is String &&
-                                  updatedName != oldName) {
-                                await ActivityLogger.renameBeat(
-                                  oldName,
-                                  updatedName,
-                                );
-
-                                setState(() {
-                                  beat["name"] = updatedName;
-                                });
-
-                                _updateOutletCounts();
-                              }
-                            },
-                          ),
-                          const Icon(Icons.chevron_right),
-                        ],
+                      subtitle: Text(
+                        "${beat.storeCount} outlets",
+                        style: const TextStyle(
+                            color: Colors.grey),
                       ),
+                      trailing:
+                      const Icon(Icons.chevron_right),
                       onTap: () async {
                         final route = MaterialPageRoute(
-                          builder: (_) =>
-                              SelectOutletScreen(beatName: beat["name"]),
+                          builder: (_) => SelectOutletScreen(
+                            beatName: beat.area,
+                          ),
                         );
 
                         widget.goToOutletAfterBeat
-                            ? await Navigator.pushReplacement(context, route)
-                            : await Navigator.push(context, route);
-
-                        _updateOutletCounts();
+                            ? await Navigator.pushReplacement(
+                            context, route)
+                            : await Navigator.push(
+                            context, route);
                       },
                     );
                   },
@@ -183,7 +142,7 @@ class _SelectBeatScreenState extends State<SelectBeatScreen> {
     );
   }
 
-  // 🔝 HEADER WITH + BUTTON
+  // 🔝 HEADER (UNCHANGED)
   Widget _header(BuildContext context) {
     return Container(
       padding:
@@ -200,20 +159,31 @@ class _SelectBeatScreenState extends State<SelectBeatScreen> {
             },
             child: const Icon(Icons.arrow_back, size: 28),
           ),
-          Image.asset('assets/TrooGood_Logo.png', height: 42),
+          Image.asset('assets/images/TrooGood_Logo.png', height: 42),
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.add_circle_outline, size: 28),
-                onPressed: _addNewBeat,
-              ),
-              IconButton(
-                icon: const Icon(Icons.notifications_none, size: 28),
+                icon: const Icon(Icons.add_circle_outline,
+                    size: 28),
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const NotificationScreen()),
+                      builder: (_) => const AddBeatScreen(),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.notifications_none,
+                    size: 28),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                      const NotificationScreen(),
+                    ),
                   );
                 },
               ),
